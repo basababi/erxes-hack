@@ -161,21 +161,22 @@ including dashes. The normalized container `edututor_ui` is only a loading key;
 it must never replace that public permission identity.
 Enforce access in the API resolvers, never only in the UI.
 
-On the platform stack, `api/src/permissions.ts` declares
-`edututorSamplesRead` and `main.ts` registers it as `meta.permissions`.
-The sample list requires a user, a tenant and `await checkPermission(action)`
-before reading `context.models.Samples`. An administrator must grant the
-sample module's read action with `all` scope (or use an owner account). There
-are no automatic default grants. `all` means this tenant only: the model
-factory selects the tenant's database. The example deliberately does not
-advertise own/group scopes without implementing corresponding row filters.
+On the platform stack, `api/src/permissions.ts` declares the `topic` module
+with `showTopics` and `topicsManage`, and `main.ts` registers it as
+`meta.permissions`. Every topics resolver requires a user, a tenant and
+`await checkPermission(action)` before touching `context.models.Topics`:
+reads check `showTopics`, writes check `topicsManage`. `showTopics` is marked
+`always`, which only makes core-ui's permission-group form keep it selected
+whenever the module is granted; there are still no automatic default grants,
+so an administrator must grant the module with `all` scope (or use an owner
+account). `all` means this tenant only: the model factory selects the
+tenant's database. The module deliberately does not advertise own/group
+scopes without implementing corresponding row filters.
 
-The sample query accepts `limit` (default 20, range 1–100) and `offset`
+`edututorTopics` accepts `limit` (default 50, range 1–100) and `offset`
 (default 0, range 0–10000), applies both in Mongo and sorts by `createdAt` and
-`_id`. The platform UI shows loading, denied/error, empty and paginated states.
-The status query is a diagnostic and does not read sample data. Standalone
-frameworks provide only the diagnostic query; add real authorization before
-adding application data.
+`_id`. The UI shows loading, error, empty and paginated states. The
+`edututorStatus` query is a diagnostic and reads no tenant data.
 
 ## Trusted gateway boundary
 

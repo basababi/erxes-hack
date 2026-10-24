@@ -42,6 +42,20 @@ See `docs/erxes-integration.md`. In short:
   mount a separate settings expose. Keep `ui/rspack.config.ts` in sync with
   `erxes.json`. Add notification widgets only when implementing notifications.
 - `api/src/print-schema.ts` prints `typeDefs` from `api/src/graphql/schema.ts` to `api/generated/schema.graphql`.
+  `schema.ts` declares the root `Query` and merges each module's typeDefs
+  (`extend type Query/Mutation`) and resolvers.
+- Modules live in `api/src/modules/<module>/` (`constants.ts`,
+  `db/definitions`, `db/models`, `graphql/typeDefs.ts`, `graphql/resolvers.ts`)
+  and `ui/src/modules/<module>/` (`graphql.ts`, `schema.ts`, `constants.ts`,
+  `components/`); route pages are in `ui/src/pages/`.
+- **Topics** (current module): collection `edututor_topics`
+  (`name`, `description?`, `gradeLevel?` 1–12, `kind`, `createdAt`), `kind` ∈
+  `linear_equation | percent_of | fraction_add` (enum `EdututorTopicKind`).
+  GraphQL: `edututorTopics(limit ≤ 100, offset ≤ 10000)`,
+  `edututorTopicDetail`, `edututorTopicAdd`, `edututorTopicEdit`,
+  `edututorTopicRemove`. Permissions: plugin `edututor`, module `topic`,
+  `showTopics` (always) for reads, `topicsManage` for writes. The page is the
+  `/edututor` index route; the edit sheet opens from `?topicId=<id>`.
 - `erxes-ui`, `ui-modules` and `erxes-api-shared` are the npm packages
   `@erxes/ui`, `@erxes/ui-modules` and `@erxes/api-shared`, installed under
   those import names with exact npm aliases. The tested cohort is
@@ -70,6 +84,16 @@ See `docs/erxes-integration.md`. In short:
   the public ingress. See the integration docs before deployment.
 - Every query has loading, error and empty states; refetch or update the
   Apollo cache after each mutation.
+- Anything `api/src/graphql/schema.ts` imports as a value must not reach
+  `erxes-api-shared/utils`: that bundle opens Redis on import, so
+  `schema:print` (and therefore `check`/`build`) never exits. Resolvers import
+  plain constants from `modules/<module>/constants.ts`, never from
+  `db/definitions` (which uses `schemaWrapper`).
+- Validate API input with Zod at the resolver boundary (`zod` 4 in `api/`).
+  UI forms use React Hook Form + `@hookform/resolvers` 3 + `zod` 3, the same
+  majors as `erxes-ui`. Root `pnpm.packageExtensions` gives
+  `@hookform/resolvers@3` a `zod` peer so its types resolve the UI's zod 3
+  instead of the hoisted API zod 4; keep it until both move together.
 - GraphQL documents are `gql()` from `~/gql` — generated into `ui/src/gql/`
   by `codegen` from `api/generated/schema.graphql` — written as a function
   call on a static string with no `${}` interpolation.

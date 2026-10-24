@@ -5,9 +5,9 @@ import { AppLayout } from "erxes-ui";
 import manifest from "../../erxes.json" with { type: "json" };
 import { Navigation } from "./modules/Navigation";
 
-const IndexPage = lazy(() =>
-  import("./pages/IndexPage").then((module) => ({
-    default: module.IndexPage,
+const TopicsPage = lazy(() =>
+  import("./pages/TopicsPage").then((module) => ({
+    default: module.TopicsPage,
   })),
 );
 const SettingsPage = lazy(() =>
@@ -20,7 +20,7 @@ export const Edututor = () => (
   <AppLayout id={manifest.name} title={manifest.title} sidebar={<Navigation />}>
     <Suspense fallback={<div role="status">Loading…</div>}>
       <Routes>
-        <Route index element={<IndexPage />} />
+        <Route index element={<TopicsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Routes>
     </Suspense>

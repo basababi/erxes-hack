@@ -1,11 +1,11 @@
 import type { IMainContext } from "erxes-api-shared/core-types";
 import { createGenerateModels } from "erxes-api-shared/utils";
 import type { Connection } from "mongoose";
-import { type ISampleModel, loadSampleClass } from "./modules/sample/db/models/Sample.ts";
-import type { ISampleDocument } from "./modules/sample/db/definitions/sample.ts";
+import { type ITopicModel, loadTopicClass } from "./modules/topics/db/models/Topic.ts";
+import type { ITopicDocument } from "./modules/topics/db/definitions/topic.ts";
 
 export interface IModels {
-  Samples: ISampleModel;
+  Topics: ITopicModel;
 }
 
 /**
@@ -25,10 +25,7 @@ export type Context = Omit<IMainContext, "models"> & {
 const loadClasses = (db: Connection) => {
   const models = {} as IModels;
 
-  models.Samples = db.model<ISampleDocument, ISampleModel>(
-    "edututor_samples",
-    loadSampleClass(models),
-  );
+  models.Topics = db.model<ITopicDocument, ITopicModel>("edututor_topics", loadTopicClass(models));
 
   return models;
 };
