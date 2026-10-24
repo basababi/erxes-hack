@@ -21,7 +21,9 @@ import {
   useQueryState,
   useToast,
 } from "erxes-ui";
+import { useNavigate } from "react-router";
 import type { EdututorTopicsQuery } from "~/gql/graphql";
+import manifest from "../../../../../erxes.json" with { type: "json" };
 import { TOPIC_EDIT_PARAM, TOPIC_KIND_LABELS } from "../constants";
 import { TOPIC_REMOVE_MUTATION } from "../graphql";
 
@@ -75,12 +77,13 @@ const TopicMoreCell = ({ cell }: { cell: Cell<TopicRow, unknown> }) => {
   );
 };
 
+// Opens the topic's lesson and problems; editing stays in the row menu.
 const TopicNameCell = ({ cell }: { cell: Cell<TopicRow, unknown> }) => {
-  const [, setTopicId] = useQueryState<string>(TOPIC_EDIT_PARAM);
+  const navigate = useNavigate();
   const { _id, name } = cell.row.original;
 
   return (
-    <RecordTableInlineCell onClick={() => setTopicId(_id)}>
+    <RecordTableInlineCell onClick={() => navigate(`/${manifest.ui.path}/topics/${_id}`)}>
       <TextOverflowTooltip value={name} className="edututor:font-medium" />
     </RecordTableInlineCell>
   );

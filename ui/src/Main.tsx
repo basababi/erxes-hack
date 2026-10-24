@@ -10,6 +10,9 @@ const TopicsPage = lazy(() =>
     default: module.TopicsPage,
   })),
 );
+const TopicDetailPage = lazy(() =>
+  import("./pages/TopicDetailPage").then((module) => ({ default: module.TopicDetailPage })),
+);
 const SettingsPage = lazy(() =>
   import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })),
 );
@@ -21,6 +24,7 @@ export const Edututor = () => (
     <Suspense fallback={<div role="status">Loading…</div>}>
       <Routes>
         <Route index element={<TopicsPage />} />
+        <Route path="topics/:topicId" element={<TopicDetailPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Routes>
     </Suspense>
