@@ -66,6 +66,7 @@ export const loadTopicClass = (models: IModels) => {
         await Promise.all([
           models.Problems.deleteMany({ topicId: _id }),
           models.Attempts.deleteByTopic(_id),
+          models.ParentGoals.deleteByTopic(_id),
         ]);
       }
 
@@ -94,6 +95,7 @@ export const loadTopicClass = (models: IModels) => {
       await Promise.all([
         models.Problems.deleteMany({ topicId: _id }),
         models.Attempts.deleteByTopic(_id),
+        models.ParentGoals.deleteByTopic(_id),
       ]);
 
       return _id;

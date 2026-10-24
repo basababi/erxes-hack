@@ -1,11 +1,9 @@
-import { useFormContext } from "react-hook-form";
+import type { Control } from "react-hook-form";
 import { Form, Input, Select, Textarea } from "erxes-ui";
 import { TOPIC_KIND_LABELS, TOPIC_KINDS } from "../constants";
 import type { TopicFormValues } from "../schema";
 
-export const TopicForm = () => {
-  const { control } = useFormContext<TopicFormValues>();
-
+export const TopicForm = ({ control }: { control: Control<TopicFormValues> }) => {
   return (
     <div className="edututor:flex edututor:flex-col edututor:gap-4">
       <Form.Field

@@ -63,3 +63,34 @@ export const calculatePracticeSummary = (items: IAttemptItem[]) => {
 
   return { correctCount, total, score, mastery };
 };
+
+export const calculatePracticeXp = (items: IAttemptItem[]) =>
+  items.reduce((xp, item) => {
+    if (item.answer === undefined && !item.solutionViewed) return xp;
+
+    return xp + 2 + (item.correct ? 8 : 0) + (item.firstTry ? 5 : 0);
+  }, 0);
+
+export const practiceBadges = (totalXp: number, items: IAttemptItem[] = []) => {
+  const badges = [
+    { id: "xp_50", title: "Эхний алхам", description: "50 XP цуглууллаа", threshold: 50 },
+    { id: "xp_150", title: "Тууштай суралцагч", description: "150 XP цуглууллаа", threshold: 150 },
+    { id: "xp_500", title: "Мэдлэгийн мастер", description: "500 XP цуглууллаа", threshold: 500 },
+  ]
+    .filter((badge) => totalXp >= badge.threshold)
+    .map(({ id, title, description }) => ({ id, title, description }));
+  const overcameSignMistake = items.some(
+    (item) =>
+      item.correct && item.firstTry === false && item.misconception === "linear_sign_flip",
+  );
+
+  if (overcameSignMistake) {
+    badges.push({
+      id: "sign_mistake_winner",
+      title: "Тэмдгийн алдааг ялагч",
+      description: "Тэмдгийн алдаагаа засаж бодлоо",
+    });
+  }
+
+  return badges;
+};

@@ -3,6 +3,8 @@ import test from "node:test";
 import type { IAttemptItem } from "../src/modules/practice/db/definitions/attempt.ts";
 import {
   calculatePracticeSummary,
+  calculatePracticeXp,
+  practiceBadges,
   selectPracticeProblemIds,
 } from "../src/modules/practice/services/practice.ts";
 
@@ -38,4 +40,38 @@ test("summary rewards first-try work and applies bounded hint penalties", () => 
     score: 67,
     mastery: 55,
   });
+});
+
+test("practice XP rewards completion, correctness, and first-try answers without hint penalties", () => {
+  const items: IAttemptItem[] = [
+    { problemId: "a", answer: "1", correct: true, firstTry: true, hintsUsed: 2 },
+    { problemId: "b", answer: "2", correct: true, firstTry: false, hintsUsed: 3 },
+    { problemId: "c", answer: "3", correct: false, firstTry: false, hintsUsed: 1 },
+    { problemId: "d", hintsUsed: 0 },
+  ];
+
+  assert.equal(calculatePracticeXp(items), 27);
+  assert.deepEqual(practiceBadges(149), [
+    { id: "xp_50", title: "Эхний алхам", description: "50 XP цуглууллаа" },
+  ]);
+  assert.equal(practiceBadges(150).length, 2);
+  assert.deepEqual(
+    practiceBadges(0, [
+      {
+        problemId: "sign",
+        answer: "x=2",
+        correct: true,
+        firstTry: false,
+        misconception: "linear_sign_flip",
+        hintsUsed: 1,
+      },
+    ]),
+    [
+      {
+        id: "sign_mistake_winner",
+        title: "Тэмдгийн алдааг ялагч",
+        description: "Тэмдгийн алдаагаа засаж бодлоо",
+      },
+    ],
+  );
 });

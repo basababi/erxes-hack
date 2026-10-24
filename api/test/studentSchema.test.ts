@@ -17,3 +17,28 @@ test("student GraphQL problem never exposes answers, params, or the private hint
   assert.equal(fields.includes("hints"), false);
   assert.equal(fields.includes("params"), false);
 });
+
+test("practice items expose the persisted diagnosis and lesson moment without a private answer", () => {
+  const schema = buildSubgraphSchema([{ typeDefs, resolvers }]);
+  const type = schema.getType("EdututorPracticeItem");
+
+  assert.equal(isObjectType(type), true);
+  if (!isObjectType(type)) return;
+
+  const fields = Object.keys(type.getFields());
+  assert.equal(fields.includes("misconception"), true);
+  assert.equal(fields.includes("lessonMoment"), true);
+  assert.equal(fields.includes("solutionViewed"), true);
+  assert.equal(fields.includes("solution"), true);
+  assert.equal(fields.includes("answer"), false);
+});
+
+test("finished sessions can restore their persisted learning feedback", () => {
+  const schema = buildSubgraphSchema([{ typeDefs, resolvers }]);
+  const type = schema.getType("EdututorPracticeSession");
+
+  assert.equal(isObjectType(type), true);
+  if (!isObjectType(type)) return;
+
+  assert.equal(Object.keys(type.getFields()).includes("aiFeedback"), true);
+});

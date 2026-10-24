@@ -50,7 +50,7 @@ const TopicSheetForm = ({
           <Sheet.Close />
         </Sheet.Header>
         <Sheet.Content className="edututor:grow edututor:px-5 edututor:py-4">
-          <TopicForm />
+          <TopicForm control={methods.control} />
         </Sheet.Content>
         <Sheet.Footer>
           <Button type="button" variant="secondary" onClick={onCancel}>

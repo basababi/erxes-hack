@@ -21,7 +21,7 @@ export const ProblemGenerateForm = ({ topicId }: { topicId: string }) => {
   const { toast } = useToast();
   const methods = useForm<GenerateFormValues>({
     resolver: zodResolver(generateFormSchema),
-    defaultValues: { count: "3", difficulty: "medium", useAi: true },
+    defaultValues: { count: String(MAX_GENERATE_COUNT), difficulty: "medium", useAi: true },
   });
   const useAi = methods.watch("useAi");
   const [generate, { loading }] = useMutation(PROBLEMS_GENERATE_MUTATION, {

@@ -1,5 +1,6 @@
 import { schemaWrapper } from "erxes-api-shared/utils";
 import { Schema, type Document } from "mongoose";
+import type { PracticeFeedback } from "../../services/feedback.ts";
 import { ATTEMPT_STATUSES, type AttemptStatus, MAX_HINTS } from "../../constants.ts";
 
 export interface IAttemptItem {
@@ -9,6 +10,7 @@ export interface IAttemptItem {
   misconception?: string;
   hintsUsed: number;
   firstTry?: boolean;
+  solutionViewed?: boolean;
 }
 
 export interface IAttempt {
@@ -16,6 +18,9 @@ export interface IAttempt {
   topicId: string;
   items: IAttemptItem[];
   score: number;
+  mastery?: number;
+  xpEarned?: number;
+  aiFeedback?: PracticeFeedback;
   status: AttemptStatus;
   startedAt: Date;
   finishedAt?: Date;
@@ -31,6 +36,29 @@ const attemptItemSchema = new Schema(
     misconception: String,
     hintsUsed: { type: Number, required: true, default: 0, min: 0, max: MAX_HINTS },
     firstTry: Boolean,
+    solutionViewed: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
+const practiceFeedbackSchema = new Schema(
+  {
+    strengths: { type: [String], required: true },
+    needsPractice: { type: [String], required: true },
+    recommendation: { type: String, required: true },
+    parentAdvice: String,
+    careerGuidance: [
+      new Schema(
+        {
+          title: { type: String, required: true },
+          rationale: { type: String, required: true },
+          tryNext: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+    ],
+    generatedByAi: { type: Boolean, required: true },
+    notice: String,
   },
   { _id: false },
 );
@@ -48,6 +76,9 @@ export const attemptSchema = schemaWrapper(
       },
     },
     score: { type: Number, required: true, default: 0, min: 0, max: 100 },
+    mastery: { type: Number, required: true, default: 0, min: 0, max: 100 },
+    xpEarned: { type: Number, required: true, default: 0, min: 0 },
+    aiFeedback: practiceFeedbackSchema,
     status: { type: String, enum: ATTEMPT_STATUSES, required: true, default: "active" },
     startedAt: { type: Date, required: true, default: Date.now },
     finishedAt: Date,

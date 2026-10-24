@@ -9,6 +9,9 @@ export const TOPICS_QUERY = gql(`
       description
       gradeLevel
       kind
+      lesson {
+        videoUrl
+      }
       createdAt
     }
   }

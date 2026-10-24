@@ -1,4 +1,4 @@
-import { IconBook2, IconBrain, IconSettings } from "@tabler/icons-react";
+import { IconBook2, IconBrain, IconSettings, IconUsers } from "@tabler/icons-react";
 import { NavigationMenuLinkItem, Sidebar } from "erxes-ui";
 import manifest from "../../../erxes.json" with { type: "json" };
 
@@ -11,6 +11,11 @@ export const Navigation = () => (
           name="Сурагчаар турших"
           icon={IconBrain}
           path={`/${manifest.ui.path}/practice`}
+        />
+        <NavigationMenuLinkItem
+          name="Эцэг эхийн ахиц"
+          icon={IconUsers}
+          path={`/${manifest.ui.path}/parents`}
         />
         <NavigationMenuLinkItem
           name="Тохиргоо"

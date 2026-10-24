@@ -1,74 +1,144 @@
-# Edututor
+# EduTutor — Алдаа бүрээсээ суралцъя
 
-Edututor plugin for erxes
+> **Буруу хариулт бол суралцах эхлэл. Шууд хариу биш, дараагийн зөв алхам.**
 
-An erxes plugin that lives outside the erxes monorepo and joins an erxes stack.
-The shared-library baseline is erxes 3.3.2. Dashed plugin names
-use the same public permission identity in the API and UI; the host must support
-normalized remote discovery and dashed page-module loading (see integration docs).
+EduTutor нь erxes дотор ажиллах, сурагч математикийн алдаагаа ойлгож засахад туслах сургалтын plugin. Шаталсан сэжүүр, алдааны онош, багшийн бичлэгийн тохирох хэсэг, кодоор шалгасан бодолтыг нэг дадлагын урсгалд холбож, ахицыг сурагч болон гэр бүлд ойлгомжтой болгоно.
 
-| Part   | Path         | Stack                                                                              | Dev port |
-| ------ | ------------ | ---------------------------------------------------------------------------------- | -------- |
-| API    | `api`        | Node.js 22, erxes-api-shared startPlugin + tenant-scoped Mongoose models (Node.js) | 3399     |
-| UI     | `ui`         | React 18 Module Federation remote (Rspack), Tailwind CSS                           | 3099     |
-| Shared | `erxes.json` | Plugin identity and ports read by both parts                                       |          |
+| Эх код                                                                 | Demo                                       | Туршсан стек                              |
+| ---------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- |
+| [GitHub — basababi/erxes-hack](https://github.com/basababi/erxes-hack) | Олон нийтэд байршуулсан demo одоогоор алга | React · Node.js · GraphQL · Gemma · erxes |
 
-The UI uses erxes's `erxes-ui`/`ui-modules` design system, installed from npm
-(`@erxes/ui`, `@erxes/ui-modules`; see
-[docs/erxes-integration.md](docs/erxes-integration.md#shared-libraries)). The
-host supplies them at runtime via Module Federation singletons — they are
-installed only so TypeScript and Rspack can resolve the imports.
+> **Demo-ийн тухай шударга тэмдэглэл:** Дараах заавраар өөрийн erxes хөгжүүлэлтийн орчинд локалаар ажиллуулна. Сурагчийн дадлага болон гэр бүлийн тайланг одоогоор ажилтан erxes Contact сонгон туршдаг; сурагч, эцэг эх Client Portal-аар өөрөө нэвтрэх боломж хараахан ороогүй.
 
-## Develop
+## Шүүгчдэд зориулсан хурдан танилцуулга
 
-```sh
-pnpm install
-cp .env.example .env
-pnpm run dev:api   # registers with the erxes gateway through Redis
-pnpm run dev:ui    # serves http://localhost:3099/remoteEntry.js
+### 90 секундэд үзүүлэх demo
+
+Demo эхлэхээс өмнө ажиллаж буй erxes орчин, туршилтын Contact, дор хаяж таван баталгаажсан бодлоготой сэдэв бэлдэнэ.
+
+1. **Асуудал — 10 сек:** “Сурагч буруу гэдгээ мэддэг ч хаана алдсанаа мэдэхгүй.”
+2. **Онош — 20 сек:** `/edututor/practice` дээр сурагч болон сэдвээ сонгож, бодлого эхлүүлээд буруу хариулт өгнө. Систем буруу ойлголтыг тайлбарлаж, хичээлийн холбогдох хэсгийг заана.
+3. **Суралцах — 20 сек:** Сэжүүрүүдийг нэг нэгээр нь нээнэ. AI хариуг урьдчилж хэлэхгүйг харуулна.
+4. **Баталгаажуулах — 15 сек:** Гурван сэжүүрийн дараа алхамчилсан бодолтыг нээж, хариуг шалгана.
+5. **Үр дүн — 25 сек:** Дадлагыг дуусгаж оноо, эзэмшилт, XP, Gemma-гийн зөвлөгөөг үзүүлээд `/edututor/parents` дахь гэр бүлийн ахиц болон сэдвийн зорилтыг харуулна.
+
+### Шийдлийн техникийн онцлог
+
+- **AI-д хариу бодох эрх өгөөгүй:** математикийн зөв хариу, алдааны ангиллыг deterministic engine гаргана; Gemma зөвхөн үүсгэсэн текст ба ахицын зөвлөгөөнд тусална.
+- **Сэжүүрээр суралцахыг дэмжинэ:** зөв бодолт API талаас эхний гурван сэжүүр ашиглагдсаны дараа л нээгдэнэ.
+- **Зөвлөгөө нь хэмжигдэхүйц өгөгдөлд тулгуурлана:** Gemma-ийн гаралтыг schema болон онооны босгоор шалгана; тохиргоо эсвэл AI үйлчилгээ доголдвол оноонд суурилсан хувилбар ажиллана.
+- **erxes-ийг дахин бүтээхгүй:** Contacts, gateway, permission, Redis болон UI-ийн боломжуудтай plugin хэлбэрээр холбогдоно.
+
+## Ямар асуудлыг шийдэх вэ?
+
+Сурагчид хариулт нь буруу гэдгийг мэддэг ч хаана алдсанаа тэр бүр ойлгодоггүй. Багш сурагч бүрийн алдааг нэг бүрчлэн шинжлэх цаггүй. Эцэг эх хүүхдээ юугаар дэмжихээ мэдэхгүй байх нь бий. EduTutor энэ гурван асуудлыг нэг суралцах гогцоонд холбож байна:
+
+```text
+Дадлага → буруу ойлголтыг оношлох → хичээлийн тохирох хэсгийг үзэх
+        → гурван сэжүүр авах → бодолтыг шалгах → ахицаа харах
 ```
 
-`check`, `build` and `dev:ui` run `codegen` first, so the generated GraphQL
-types always match the printed API schema.
+Хариуг программ өөрөө тооцно; AI сурагчийн хариулт зөв эсэхийг шийдэхгүй. Гурван сэжүүрийг ашиглахаас өмнө бодолтыг нээхгүй. AI ажиллахгүй үед хадгалсан оноонд үндэслэсэн тогтмол зөвлөгөө харуулна.
 
-In the erxes checkout `.env`, add the plugin and restart the gateway and
-core-api so they pick it up:
+## Одоогоор ажиллаж буй боломжууд
+
+| Хэрэглэгч             | Одоогийн хувилбарт                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Сурагч**            | Асуултад хариулах, алдааны тайлбар авах, гурван шаталсан сэжүүр хэрэглэх, бичлэгийн хэсэг үзэх, дараа нь бодолт шалгах; XP, тэмдэг, ахиц болон карьерын судлах санаа авах |
+| **Багш / ажилтан**    | Сэдэв үүсгэх, видео ба буруу ойлголтын цаг холбох, бодлого үүсгэж баталгаажуулах, Contact сонгон дадлагыг эхлүүлэх                                                        |
+| **Эцэг эхийн тайлан** | Contact сонгон дуусгасан дадлага, оноо, XP, сэдвийн ахиц ба Gemma-гийн гэрийн зөвлөгөөг үзэх; сэдэвт эзэмшилтийн зорилт тавих                                             |
+
+Дадлагын сэдэвт дор хаяж таван батлагдсан бодлого шаардлагатай. Зорилт нь тухайн сурагчийн сонгосон сэдвээр дуусгасан дадлагын дундаж эзэмшилт босгод хүрэхэд биелнэ. Энэ нь гэр бүлийн ажилтны тайлан бөгөөд эцэг эхийн хувийн нэвтрэх эрх биш.
+
+### Одоогоор хэрэгжээгүй боломжууд
+
+Сурагчийн утасны дугаар/OTP нэвтрэлт, Client Portal холболт, эцэг эхийн бүртгэлийг хүүхэдтэй аюулгүй холбох, зорилтын шагнал, эцэг эхэд автоматаар мэдэгдэл илгээх, багшийн бүлгийн аналитикийн самбар одоогийн ажиллаж буй хувилбарт байхгүй. Эцэг эхийн тайлан болон зорилтын тохиргоог ажилтан Contact сонгож ашиглана; эцэг эх өөрөө нэвтрэх хамгаалалттай хуудас хараахан биш. Карьерын санаа нь сонирхлоо туршихад зориулсан санал болохоос авьяас чадварын үнэлгээ эсвэл тухайн мэргэжилд тохирно гэсэн баталгаа биш.
+
+## Технологийн сонголт
+
+| Хэсэг                  | Технологи                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| UI                     | React 18, TypeScript, Rspack Module Federation, Tailwind CSS, `erxes-ui`             |
+| API                    | Node.js 22, TypeScript, GraphQL, Apollo Federation, Mongoose                         |
+| Өгөгдөл                | `erxes-api-shared`-аар tenant тус бүрд тусгаарлан холбодог MongoDB model             |
+| AI                     | Gemini API-аар ашиглах Gemma; зөв хариуг детерминистик математикийн хөдөлгүүр тооцно |
+| Платформ               | erxes gateway, Redis service discovery, erxes permissions                            |
+| Хөгжүүлэлтийн хэрэгсэл | pnpm 9, GraphQL Code Generator, oxlint, oxfmt                                        |
+
+## Локал орчинд ажиллуулах
+
+EduTutor нь erxes monorepo-оос тусдаа plugin. Тиймээс UI болон API-г тохирох erxes орчинтой хамт ажиллуулна. erxes талд gateway, core-api, core-ui, Redis, MongoDB ажиллаж байх шаардлагатай.
+
+### Шаардлагатай зүйлс
+
+- Node.js 22
+- pnpm 9
+- Redis болон MongoDB үйлчилгээтэй, ажиллаж буй erxes хөгжүүлэлтийн орчин
+
+### Суулгах, тохируулах
 
 ```sh
+git clone https://github.com/basababi/erxes-hack.git
+cd erxes-hack
+pnpm install
+cp .env.example .env
+```
+
+`.env` файлд локал erxes орчиндоо тохирох Redis болон MongoDB холболтын утгуудыг тохируулна. UI-ийн үндсэн entry URL нь `http://localhost:3099/remoteEntry.js`; уг хаяг browser-оос нээгдэх боломжтой байх ёстой. Gemma ашиглан бодлогын текст найруулах, ахицын зөвлөгөө гаргахын тулд API орчинд `EDUTUTOR_LLM_API_KEY` болон `EDUTUTOR_LLM_MODEL` тохируулна. `.env` файлыг эх кодын санд бүү оруул, API түлхүүрийг UI-д бүү байршуул.
+
+erxes-ийн кодын сан дотор gateway болон core-api-ийн `ENABLED_PLUGINS` тохиргоонд plugin-ийг нэмж, тухайн үйлчилгээнүүдийг дахин асаана:
+
+```dotenv
 ENABLED_PLUGINS=...,edututor
 ```
 
-Then open `http://localhost:3001/edututor` (settings: `/edututor/settings`).
-Both processes must use the same Redis as erxes; `UI_ENTRY_URL` must be
-reachable by the browser, not merely by the API container. Requests reach the
-API through the gateway (`/graphql`), which forwards the signed-in user and
-tenant. Those headers are not independently authenticated: keep the API on
-a private gateway-only network and strip user/tenant headers at public ingress.
+Plugin-ийн API, UI болон erxes нь нэг Redis ашиглах ёстой. Хүсэлт API-д erxes gateway-аар дамжин хүрнэ. Plugin API-г нээлттэй сүлжээнд шууд гаргахгүй; хэрэглэгч эсвэл tenant-ийг тодорхойлох header-ийг browser-оос ирсэн тохиолдолд итгэж болохгүй.
 
-## Scripts
+### Plugin-ийг эхлүүлэх
 
-| Script             | What it does                                    |
-| ------------------ | ----------------------------------------------- |
-| `pnpm run dev:api` | API in watch mode                               |
-| `pnpm run dev:ui`  | UI remote dev server                            |
-| `pnpm run codegen` | Print the API schema, generate UI GraphQL types |
-| `pnpm run build`   | Production build of every part                  |
-| `pnpm run check`   | Type-check every part                           |
-| `pnpm run lint`    | oxlint                                          |
-| `pnpm run fmt`     | oxfmt                                           |
+Plugin-ийн эх кодын сангаас тус тусдаа хоёр terminal дээр ажиллуулна:
 
-## Deploy
+```sh
+pnpm run dev:api
+pnpm run dev:ui
+```
 
-- **API**: `docker build --build-arg UI_ENTRY_URL=<remoteEntry.js URL> -t <image> .`
-  Run `pnpm install` first and commit its lockfile before building the image.
-  The image serves the API on port 80 and registers itself on start
-  (`plugin-edututor-api:80` unless `LOAD_BALANCER_ADDRESS` is set).
-- **UI**: upload `ui/dist` to a static host or CDN. Upload hashed assets
-  first and `remoteEntry.js` last with `Cache-Control: no-store`. Without
-  `UI_ENTRY_URL`, erxes falls back to `https://plugins.erxes.io/<release>/edututor_ui/remoteEntry.js`;
-  this generator does not upload there. Set your own browser-reachable URL,
-  serve all emitted chunks with CORS for the erxes origin, and use immutable
-  caching only for content-hashed assets (not stable-named expose chunks).
+erxes host дээр `http://localhost:3001/edututor` хаягаар нээнэ. Дадлагын хуудас: `http://localhost:3001/edututor/practice`.
 
-See [docs/erxes-integration.md](docs/erxes-integration.md) for how the plugin
-plugs into erxes and [AGENTS.md](AGENTS.md) for the rules to keep it working.
+### Дадлагын урсгалыг турших
+
+1. Сэдэв нээх эсвэл шинээр үүсгээд, боломжтой бол хичээлийн бичлэг нэмнэ.
+2. Бодлого үүсгэн шалгана. Баталгаажуулагчид тэнцсэн бодлогыг л зөвшөөрч болно.
+3. Тухайн сэдэвт дор хаяж таван баталгаажсан бодлогыг зөвшөөрнө. Дадлагын тохиргоонд зөвшөөрсөн бодлогын тоо болон бодлого удирдах холбоос харагдана.
+4. Дадлагын хуудсыг нээгээд erxes Contact болон сэдвээ сонгон эхлүүлнэ.
+5. Хариултаа оруулна. Буруу бол алдааны тайлбараа хараад сэжүүрүүдийг нэг нэгээр нь авна. Гурван сэжүүрийн дараа бодолт нээгдэнэ.
+6. Дадлагаа дуусгаж XP, тэмдэг, сэдвийн ахицын дүгнэлтээ харна.
+
+Дадлагын simulator сонгосон tenant-ийн өгөгдлийн санд оролдлого хадгалдаг. Туршихдаа тест Contact болон тест tenant ашиглана уу.
+
+## Шалгалт ба build
+
+```sh
+pnpm run check
+pnpm run lint
+pnpm run test
+pnpm run build
+```
+
+`check` болон `build` нь GraphQL schema болон төрлүүдийг эхлээд үүсгэнэ. API, UI-ийн GraphQL үүсгэсэн файлуудыг Git-д оруулахгүй байхаар тохируулсан.
+
+## Байршуулалт
+
+Одоогоор олон нийтэд зориулсан deployment тохируулаагүй. Байршуулалт хийхдээ browser-оос нэвтрэх UI entry URL-ийг зааж API image үүсгэнэ:
+
+```sh
+docker build \
+  --build-arg UI_ENTRY_URL=https://<таны-ui-host>/remoteEntry.js \
+  -t edututor .
+```
+
+`ui/dist` хавтсыг static host эсвэл CDN-д байршуулж, API орчин болон gateway бүртгэлийг тохируулна. UI asset-ууд erxes-ийн origin-оос ирэх хүсэлтийг зөвшөөрч байх хэрэгтэй. Module Federation, хувилбарын нийцэл болон gateway-ийн дэлгэрэнгүйг [erxes-тэй нэгтгэх заавар](docs/erxes-integration.md)-аас үзнэ үү.
+
+## Лиценз
+
+AGPL-3.0-only. Дэлгэрэнгүйг [LICENSE](LICENSE)-ээс үзнэ үү.

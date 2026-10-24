@@ -14,6 +14,9 @@ const TopicDetailPage = lazy(() =>
 const PracticePage = lazy(() =>
   import("./pages/PracticePage").then((module) => ({ default: module.PracticePage })),
 );
+const ParentProgressPage = lazy(() =>
+  import("./pages/ParentProgressPage").then((module) => ({ default: module.ParentProgressPage })),
+);
 const SettingsPage = lazy(() =>
   import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })),
 );
@@ -27,6 +30,7 @@ export const Edututor = () => (
         <Route index element={<TopicsPage />} />
         <Route path="topics/:topicId" element={<TopicDetailPage />} />
         <Route path="practice" element={<PracticePage />} />
+        <Route path="parents" element={<ParentProgressPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Routes>
     </Suspense>

@@ -13,7 +13,7 @@ export const CONFIG: IUIConfig = {
   name,
   path,
   // Advisory compatibility range read by current core-ui hosts.
-  platform: "3.3.2",
+  platform: "~3.3.4",
   icon: IconSandbox,
   navigationGroup: {
     name: manifest.title,
