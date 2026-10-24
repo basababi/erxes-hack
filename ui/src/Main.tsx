@@ -6,12 +6,13 @@ import manifest from "../../erxes.json" with { type: "json" };
 import { Navigation } from "./modules/Navigation";
 
 const TopicsPage = lazy(() =>
-  import("./pages/TopicsPage").then((module) => ({
-    default: module.TopicsPage,
-  })),
+  import("./pages/TopicsPage").then((module) => ({ default: module.TopicsPage })),
 );
 const TopicDetailPage = lazy(() =>
   import("./pages/TopicDetailPage").then((module) => ({ default: module.TopicDetailPage })),
+);
+const PracticePage = lazy(() =>
+  import("./pages/PracticePage").then((module) => ({ default: module.PracticePage })),
 );
 const SettingsPage = lazy(() =>
   import("./pages/SettingsPage").then((module) => ({ default: module.SettingsPage })),
@@ -25,6 +26,7 @@ export const Edututor = () => (
       <Routes>
         <Route index element={<TopicsPage />} />
         <Route path="topics/:topicId" element={<TopicDetailPage />} />
+        <Route path="practice" element={<PracticePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Routes>
     </Suspense>

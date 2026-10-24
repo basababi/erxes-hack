@@ -11,14 +11,15 @@ export interface IProblemModel extends Model<IProblemDocument> {
     limit: number;
     offset: number;
   }): Promise<IProblemDocument[]>;
+  listApprovedByTopic(topicId: string, limit: number): Promise<IProblemDocument[]>;
+  findByIds(ids: string[]): Promise<IProblemDocument[]>;
   getProblem(_id: string): Promise<IProblemDocument>;
   createProblems(docs: IProblem[]): Promise<IProblemDocument[]>;
   approveProblem(_id: string): Promise<IProblemDocument>;
   rejectProblem(_id: string): Promise<IProblemDocument>;
 }
 
-const notFound = () =>
-  new GraphQLError("Problem not found", { extensions: { code: "NOT_FOUND" } });
+const notFound = () => new GraphQLError("Problem not found", { extensions: { code: "NOT_FOUND" } });
 
 export const loadProblemClass = (models: IModels) => {
   class Problem {
@@ -40,12 +41,23 @@ export const loadProblemClass = (models: IModels) => {
         .lean<IProblemDocument[]>();
     }
 
+    public static listApprovedByTopic(topicId: string, limit: number) {
+      return models.Problems.find({ topicId, status: "approved", "verification.ok": true })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit)
+        .lean<IProblemDocument[]>();
+    }
+
+    public static findByIds(ids: string[]) {
+      if (ids.length === 0) return Promise.resolve([]);
+
+      return models.Problems.find({ _id: { $in: ids } }).lean<IProblemDocument[]>();
+    }
+
     public static async getProblem(_id: string) {
       const problem = await models.Problems.findOne({ _id }).lean<IProblemDocument>();
 
-      if (!problem) {
-        throw notFound();
-      }
+      if (!problem) throw notFound();
 
       return problem;
     }
@@ -64,9 +76,7 @@ export const loadProblemClass = (models: IModels) => {
         { new: true },
       ).lean<IProblemDocument>();
 
-      if (problem) {
-        return problem;
-      }
+      if (problem) return problem;
 
       await models.Problems.getProblem(_id);
 
@@ -82,9 +92,7 @@ export const loadProblemClass = (models: IModels) => {
         { new: true },
       ).lean<IProblemDocument>();
 
-      if (!problem) {
-        throw notFound();
-      }
+      if (!problem) throw notFound();
 
       return problem;
     }

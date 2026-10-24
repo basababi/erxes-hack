@@ -1,5 +1,5 @@
 import { useQuery } from "@apollo/client";
-import { IconAlertTriangle, IconBook2 } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBook2, IconBrain } from "@tabler/icons-react";
 // Root imports on purpose: core-ui shares `erxes-ui`/`ui-modules` as Module
 // Federation singletons keyed on the bare specifier, so deep imports would
 // bundle second private copies instead of reusing the host's.
@@ -98,6 +98,13 @@ export const TopicDetailPage = () => {
           </Breadcrumb>
           <Separator.Inline />
         </PageHeader.Start>
+        <PageHeader.End>
+          <Button variant="outline" asChild>
+            <Link to={`/${path}/practice?topicId=${encodeURIComponent(topicId)}`}>
+              <IconBrain /> Сурагчаар турших
+            </Link>
+          </Button>
+        </PageHeader.End>
       </PageHeader>
       <div className="edututor:flex-1 edututor:overflow-auto">
         <TopicDetailContent topicId={topicId} />

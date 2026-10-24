@@ -19,8 +19,6 @@ export interface ITopicModel extends Model<ITopicDocument> {
 
 const notFound = () => new GraphQLError("Topic not found", { extensions: { code: "NOT_FOUND" } });
 
-// Model statics live on the schema class, matching the monorepo's
-// loadXClass(models) convention.
 export const loadTopicClass = (models: IModels) => {
   class Topic {
     public static list({ limit, offset }: { limit: number; offset: number }) {
@@ -34,9 +32,7 @@ export const loadTopicClass = (models: IModels) => {
     public static async getTopic(_id: string) {
       const topic = await models.Topics.findOne({ _id }).lean<ITopicDocument>();
 
-      if (!topic) {
-        throw notFound();
-      }
+      if (!topic) throw notFound();
 
       return topic;
     }
@@ -49,22 +45,28 @@ export const loadTopicClass = (models: IModels) => {
 
     public static async updateTopic(_id: string, doc: ITopic) {
       const current = await models.Topics.getTopic(_id);
-      // Unset optional fields the form cleared instead of storing null.
       const $unset: Partial<Record<keyof ITopic, 1>> = {};
 
       if (doc.description === undefined) $unset.description = 1;
       if (doc.gradeLevel === undefined) $unset.gradeLevel = 1;
 
-      // Misconceptions are per kind, so chapters do not survive a kind change.
-      const $set = current.kind === doc.kind ? doc : { ...doc, "lesson.chapters": [] };
+      const kindChanged = current.kind !== doc.kind;
+      const $set = kindChanged ? { ...doc, "lesson.chapters": [] } : doc;
       const topic = await models.Topics.findOneAndUpdate(
         { _id },
         { $set, $unset },
         { new: true, runValidators: true },
       ).lean<ITopicDocument>();
 
-      if (!topic) {
-        throw notFound();
+      if (!topic) throw notFound();
+
+      // Existing problems and attempts carry the old engine kind and are no
+      // longer valid after a topic changes category.
+      if (kindChanged) {
+        await Promise.all([
+          models.Problems.deleteMany({ topicId: _id }),
+          models.Attempts.deleteByTopic(_id),
+        ]);
       }
 
       return topic;
@@ -79,22 +81,20 @@ export const loadTopicClass = (models: IModels) => {
         { new: true, runValidators: true },
       ).lean<ITopicDocument>();
 
-      if (!topic) {
-        throw notFound();
-      }
+      if (!topic) throw notFound();
 
       return topic;
     }
 
-    // A topic owns its problems; remove them with it.
     public static async removeTopic(_id: string) {
       const { deletedCount } = await models.Topics.deleteOne({ _id });
 
-      if (!deletedCount) {
-        throw notFound();
-      }
+      if (!deletedCount) throw notFound();
 
-      await models.Problems.deleteMany({ topicId: _id });
+      await Promise.all([
+        models.Problems.deleteMany({ topicId: _id }),
+        models.Attempts.deleteByTopic(_id),
+      ]);
 
       return _id;
     }

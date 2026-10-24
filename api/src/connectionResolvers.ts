@@ -3,12 +3,15 @@ import { createGenerateModels } from "erxes-api-shared/utils";
 import type { Connection } from "mongoose";
 import type { IProblemDocument } from "./modules/problems/db/definitions/problem.ts";
 import { type IProblemModel, loadProblemClass } from "./modules/problems/db/models/Problem.ts";
+import type { IAttemptDocument } from "./modules/practice/db/definitions/attempt.ts";
+import { type IAttemptModel, loadAttemptClass } from "./modules/practice/db/models/Attempt.ts";
 import type { ITopicDocument } from "./modules/topics/db/definitions/topic.ts";
 import { type ITopicModel, loadTopicClass } from "./modules/topics/db/models/Topic.ts";
 
 export interface IModels {
   Topics: ITopicModel;
   Problems: IProblemModel;
+  Attempts: IAttemptModel;
 }
 
 /**
@@ -28,11 +31,15 @@ export type Context = Omit<IMainContext, "models"> & {
 const loadClasses = (db: Connection) => {
   const models = {} as IModels;
 
-  models.Topics = db.model<ITopicDocument, ITopicModel>("edututor_topics", loadTopicClass(models));
   models.Problems = db.model<IProblemDocument, IProblemModel>(
     "edututor_problems",
     loadProblemClass(models),
   );
+  models.Attempts = db.model<IAttemptDocument, IAttemptModel>(
+    "edututor_attempts",
+    loadAttemptClass(models),
+  );
+  models.Topics = db.model<ITopicDocument, ITopicModel>("edututor_topics", loadTopicClass(models));
 
   return models;
 };
