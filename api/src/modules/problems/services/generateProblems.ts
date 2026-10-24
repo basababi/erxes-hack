@@ -26,15 +26,14 @@ export interface GeneratedProblems {
   notice: string | null;
 }
 
-// AI hints are unchecked text until check() runs, so not a 3-tuple yet.
 interface Wording {
   statement: string;
   hints: string[];
   source: ProblemSource;
 }
 
-// One batched call for all items; any failure falls back to the code
-// templates so generation never depends on the model being up.
+// One batched call for all items. An unavailable model or malformed batch
+// falls back completely; missing individual items fall back independently.
 const rewordWithAi = async (
   kind: ProblemKind,
   difficulty: Difficulty,
@@ -58,9 +57,15 @@ const rewordWithAi = async (
       }),
       problemTextResponseSchema,
     );
+    const byIndex = new Map<number, (typeof problems)[number]>();
+
+    for (const problem of problems) {
+      if (!byIndex.has(problem.index)) byIndex.set(problem.index, problem);
+    }
+
     let missing = 0;
     const wordings = templates.map((template, index): Wording => {
-      const ai = problems.find((problem) => problem.index === index + 1);
+      const ai = byIndex.get(index + 1);
 
       if (!ai) {
         missing++;
@@ -73,7 +78,7 @@ const rewordWithAi = async (
 
     return {
       wordings,
-      notice: missing ? `Gemma ${missing} бодлогыг алгассан тул тэдгээрийг загвараар бичлээ` : null,
+      notice: missing ? `Gemma ${missing} бодлогыг алгассан тул загвараар нөхлөө` : null,
     };
   } catch (error) {
     return fallback(
@@ -82,8 +87,6 @@ const rewordWithAi = async (
   }
 };
 
-// Params and answers always come from the engine; wording (template or
-// Gemma) only passes when the deterministic check accepts it.
 export const generateProblems = async ({
   topicId,
   kind,
@@ -94,9 +97,13 @@ export const generateProblems = async ({
   const seeds = Array.from({ length: count }, () => {
     const params = randomParams(kind, difficulty);
 
-    return { params, answer: solve(kind, params), template: generateTemplate(kind, difficulty, params) };
+    return {
+      params,
+      answer: solve(kind, params),
+      template: generateTemplate(kind, difficulty, params),
+    };
   });
-  const { wordings, notice } = useAi
+  const generated = useAi
     ? await rewordWithAi(
         kind,
         difficulty,
@@ -106,16 +113,31 @@ export const generateProblems = async ({
         wordings: seeds.map(({ template }): Wording => ({ ...template, source: "template" })),
         notice: null,
       };
+  let invalidAi = 0;
 
   const problems = seeds.map(({ params, answer, template }, index): IProblem => {
-    const wording: Wording = wordings[index] ?? { ...template, source: "template" };
-    const verification = check({
+    let wording: Wording = generated.wordings[index] ?? { ...template, source: "template" };
+    let verification = check({
       kind,
       params,
       statement: wording.statement,
       answer,
       hints: wording.hints,
     });
+
+    // Invalid model text never becomes broken teacher data. Keep the
+    // deterministic template for this one item and report the fallback.
+    if (!verification.ok && wording.source === "gemma") {
+      invalidAi++;
+      wording = { ...template, source: "template" };
+      verification = check({
+        kind,
+        params,
+        statement: wording.statement,
+        answer,
+        hints: wording.hints,
+      });
+    }
 
     return {
       topicId,
@@ -130,10 +152,14 @@ export const generateProblems = async ({
       source: wording.source,
     };
   });
+  const notices = [
+    generated.notice,
+    invalidAi ? `Шалгагч Gemma-ийн ${invalidAi} найруулгыг зогсоож, загвараар сольсон` : null,
+  ].filter((notice): notice is string => Boolean(notice));
 
   return {
     problems,
-    usedAi: wordings.some((wording) => wording.source === "gemma"),
-    notice,
+    usedAi: problems.some((problem) => problem.source === "gemma"),
+    notice: notices.length ? notices.join(". ") : null,
   };
 };

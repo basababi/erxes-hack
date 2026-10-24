@@ -1,8 +1,3 @@
-// Temporary stand-in for `./engine` (owned by another developer) until it is
-// merged; reach it only through engineAdapter.ts. Implements linear_equation
-// only (a·x + b = c with an integer root). Pure: no erxes-api-shared imports,
-// because print-schema loads everything the resolvers import.
-
 export type ProblemKind = "linear_equation" | "percent_of" | "fraction_add";
 
 export type Difficulty = "easy" | "medium" | "hard";
@@ -60,19 +55,66 @@ export const MISCONCEPTIONS: Misconception[] = [
     title: "Хасахаас өмнө хуваасан",
     message: "Эхлээд x-гүй гишүүнийг шилжүүлж, дараа нь коэффициентод хуваа.",
   },
+  {
+    id: "percent_no_hundred",
+    kind: "percent_of",
+    title: "100-д хуваахаа мартсан",
+    message: "Хувийг эхлээд 100-д хувааж, дараа нь өгөгдсөн тоогоор үржүүлнэ.",
+  },
+  {
+    id: "percent_remainder",
+    kind: "percent_of",
+    title: "Үлдэх хувийг олсон",
+    message: "Асуусан хувийг олно. 100%-аас хассан үлдэгдлийг бодох шаардлагагүй.",
+  },
+  {
+    id: "percent_reversed",
+    kind: "percent_of",
+    title: "Харьцааг урвуулсан",
+    message: "Өгөгдсөн тоог хувьд хуваахгүй; хувь ÷ 100 × тоо гэсэн дарааллаар бодно.",
+  },
+  {
+    id: "fraction_add_both",
+    kind: "fraction_add",
+    title: "Хүртвэр, хуваарийг шууд нэмсэн",
+    message: "Өөр хуваарьтай бутархайг шууд нэмэхгүй. Эхлээд ижил хуваарьтай болгоно.",
+  },
+  {
+    id: "fraction_no_cross_scale",
+    kind: "fraction_add",
+    title: "Хүртвэрүүдийг ижил хэмжээгээр үржүүлээгүй",
+    message: "Хуваарийг үржүүлэхдээ хүртвэр бүрийг нөгөө бутархайн хуваариар мөн үржүүлнэ.",
+  },
+  {
+    id: "fraction_wrong_denominator",
+    kind: "fraction_add",
+    title: "Шинэ хуваарийг буруу сонгосон",
+    message: "Нийлбэрийн хуваарь нь хоёр хуваарийн ерөнхий хуваагдагч байх ёстой.",
+  },
 ];
 
-const RANGES: Record<Difficulty, { a: [number, number]; x: [number, number]; b: [number, number] }> =
-  {
-    easy: { a: [2, 5], x: [1, 10], b: [1, 10] },
-    medium: { a: [2, 9], x: [-10, 10], b: [-20, 20] },
-    hard: { a: [-12, 12], x: [-15, 15], b: [-50, 50] },
-  };
+const LINEAR_RANGES: Record<
+  Difficulty,
+  { a: [number, number]; x: [number, number]; b: [number, number] }
+> = {
+  easy: { a: [2, 5], x: [1, 10], b: [1, 10] },
+  medium: { a: [2, 9], x: [-10, 10], b: [-20, 20] },
+  hard: { a: [-12, 12], x: [-15, 15], b: [-50, 50] },
+};
 
-const unsupported = (kind: ProblemKind) =>
-  new Error(`Problem kind "${kind}" is not supported until the problem engine is merged`);
+const PERCENT_VALUES: Record<Difficulty, readonly number[]> = {
+  easy: [10, 20, 25, 50, 75],
+  medium: [5, 10, 15, 20, 25, 30, 40, 60, 75],
+  hard: [4, 5, 8, 12, 15, 18, 24, 35, 45, 60, 72],
+};
 
-const pick = ([min, max]: [number, number], random: () => number, exclude: number[]) => {
+const FRACTION_LIMITS: Record<Difficulty, { denominator: [number, number]; multiplier: number }> = {
+  easy: { denominator: [2, 6], multiplier: 1 },
+  medium: { denominator: [3, 10], multiplier: 1 },
+  hard: { denominator: [4, 14], multiplier: 2 },
+};
+
+const pick = ([min, max]: [number, number], random: () => number, exclude: number[] = []) => {
   for (;;) {
     const value = min + Math.floor(random() * (max - min + 1));
 
@@ -80,14 +122,129 @@ const pick = ([min, max]: [number, number], random: () => number, exclude: numbe
   }
 };
 
-const linear = (params: Params) => {
-  const { a, b, c } = params;
+const pickFrom = <T>(values: readonly T[], random: () => number) =>
+  values[Math.min(values.length - 1, Math.floor(random() * values.length))] as T;
 
-  if (a === undefined || b === undefined || c === undefined || a === 0) {
-    throw new Error("linear_equation needs non-zero a and numeric b, c");
+const requiredNumber = (params: Params, name: string) => {
+  const value = params[name];
+
+  if (value === undefined || !Number.isFinite(value)) {
+    throw new Error(`Missing or invalid problem parameter: ${name}`);
   }
 
+  return value;
+};
+
+const linear = (params: Params) => {
+  const a = requiredNumber(params, "a");
+  const b = requiredNumber(params, "b");
+  const c = requiredNumber(params, "c");
+
+  if (a === 0) throw new Error("linear_equation needs a non-zero coefficient");
+
   return { a, b, c };
+};
+
+const percent = (params: Params) => {
+  const percentValue = requiredNumber(params, "percent");
+  const whole = requiredNumber(params, "whole");
+
+  if (percentValue <= 0 || percentValue >= 100 || whole <= 0) {
+    throw new Error("percent_of needs 0 < percent < 100 and a positive whole");
+  }
+
+  return { percent: percentValue, whole };
+};
+
+const fraction = (params: Params) => {
+  const leftNumerator = requiredNumber(params, "leftNumerator");
+  const leftDenominator = requiredNumber(params, "leftDenominator");
+  const rightNumerator = requiredNumber(params, "rightNumerator");
+  const rightDenominator = requiredNumber(params, "rightDenominator");
+
+  if (leftDenominator <= 0 || rightDenominator <= 0) {
+    throw new Error("fraction_add needs positive denominators");
+  }
+
+  return { leftNumerator, leftDenominator, rightNumerator, rightDenominator };
+};
+
+const gcd = (left: number, right: number) => {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+
+  while (b) [a, b] = [b, a % b];
+
+  return a || 1;
+};
+
+const fractionText = (numerator: number, denominator: number) => {
+  const sign = denominator < 0 ? -1 : 1;
+  const divisor = gcd(numerator, denominator);
+  const top = (sign * numerator) / divisor;
+  const bottom = Math.abs(denominator) / divisor;
+
+  return bottom === 1 ? String(top) : `${top}/${bottom}`;
+};
+
+const parseNumber = (value: string): number | null => {
+  const normalized = value
+    .trim()
+    .replace(/^x\s*=\s*/i, "")
+    .replace(/[−–]/g, "-")
+    .replace(/,/g, ".")
+    .replace(/\s+/g, "");
+  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(?:\/(-?\d+(?:\.\d+)?))?$/);
+
+  if (!match) return null;
+
+  const numerator = Number(match[1]);
+  const denominator = match[2] === undefined ? 1 : Number(match[2]);
+
+  return denominator === 0 ? null : numerator / denominator;
+};
+
+const sameNumber = (left: number, right: number) => Math.abs(left - right) < 1e-9;
+
+const uniqueValues = (values: number[]) =>
+  values.every(
+    (value, index) =>
+      Number.isFinite(value) && values.findIndex((other) => sameNumber(other, value)) === index,
+  );
+
+const clearDiagnosis = (correct: number, inputs: number[], wrongAnswers: number[]) =>
+  uniqueValues([correct, ...wrongAnswers]) &&
+  inputs.every((input) => !sameNumber(Math.abs(input), Math.abs(correct)));
+
+const linearWrongAnswers = ({ a, b, c }: { a: number; b: number; c: number }) => ({
+  linear_sign_flip: (c + b) / a,
+  linear_no_divide: c - b,
+  linear_multiply_instead: (c - b) * a,
+  linear_divide_first: c / a - b,
+});
+
+const percentWrongAnswers = ({ percent: part, whole }: { percent: number; whole: number }) => ({
+  percent_no_hundred: part * whole,
+  percent_remainder: (whole * (100 - part)) / 100,
+  percent_reversed: (whole / part) * 100,
+});
+
+const fractionWrongAnswers = ({
+  leftNumerator: a,
+  leftDenominator: b,
+  rightNumerator: c,
+  rightDenominator: d,
+}: ReturnType<typeof fraction>) => ({
+  fraction_add_both: (a + c) / (b + d),
+  fraction_no_cross_scale: (a + c) / (b * d),
+  fraction_wrong_denominator: (a * d + c * b) / (b + d),
+});
+
+const wrongAnswers = (kind: ProblemKind, params: Params): Record<string, number> => {
+  if (kind === "linear_equation") return linearWrongAnswers(linear(params));
+  if (kind === "percent_of") return percentWrongAnswers(percent(params));
+
+  return fractionWrongAnswers(fraction(params));
 };
 
 const equationText = (params: Params) => {
@@ -96,25 +253,15 @@ const equationText = (params: Params) => {
   return `${a}x ${b < 0 ? "-" : "+"} ${Math.abs(b)} = ${c}`;
 };
 
-// The wrong answer each misconception produces.
-const misconceptionAnswers = ({ a, b, c }: { a: number; b: number; c: number }) => ({
-  linear_sign_flip: (c + b) / a,
-  linear_no_divide: c - b,
-  linear_multiply_instead: (c - b) * a,
-  linear_divide_first: c / a - b,
-});
+const fractionExpression = (params: Params) => {
+  const {
+    leftNumerator: a,
+    leftDenominator: b,
+    rightNumerator: c,
+    rightDenominator: d,
+  } = fraction(params);
 
-// Rejects params where a diagnosis would be ambiguous (two misconceptions,
-// or one and the correct answer, give the same number) or where the answer
-// equals a number in the problem, so any hint that contains it is a leak.
-const isClear = (a: number, b: number, x: number) => {
-  const c = a * x + b;
-  const values = [x, ...Object.values(misconceptionAnswers({ a, b, c }))];
-  const distinct = values.every(
-    (value, index) => values.findIndex((other) => sameNumber(other, value)) === index,
-  );
-
-  return distinct && ![a, b, c].some((number) => Math.abs(number) === Math.abs(x));
+  return `${a}/${b} + ${c}/${d}`;
 };
 
 export const randomParams = (
@@ -122,46 +269,90 @@ export const randomParams = (
   difficulty: Difficulty,
   random: () => number = Math.random,
 ): Params => {
-  if (kind !== "linear_equation") throw unsupported(kind);
+  for (let attempt = 0; attempt < 2_000; attempt++) {
+    if (kind === "linear_equation") {
+      const range = LINEAR_RANGES[difficulty];
+      const a = pick(range.a, random, [-1, 0, 1]);
+      const x = pick(range.x, random, [0]);
+      const b = pick(range.b, random, [0]);
+      const params = { a, b, c: a * x + b };
 
-  const range = RANGES[difficulty];
+      if (clearDiagnosis(x, Object.values(params), Object.values(linearWrongAnswers(params)))) {
+        return params;
+      }
+    } else if (kind === "percent_of") {
+      const part = pickFrom(PERCENT_VALUES[difficulty], random);
+      const answerRange: [number, number] =
+        difficulty === "easy" ? [1, 30] : difficulty === "medium" ? [2, 80] : [3, 180];
+      const answer = pick(answerRange, random);
+      const whole = (answer * 100) / part;
 
-  for (;;) {
-    const a = pick(range.a, random, [-1, 0, 1]);
-    const x = pick(range.x, random, [0]);
-    const b = pick(range.b, random, [0]);
+      if (!Number.isInteger(whole)) continue;
 
-    if (isClear(a, b, x)) return { a, b, c: a * x + b };
+      const params = { percent: part, whole };
+      const inputs = [part, whole, 100];
+
+      if (clearDiagnosis(answer, inputs, Object.values(percentWrongAnswers(params)))) {
+        return params;
+      }
+    } else {
+      const range = FRACTION_LIMITS[difficulty];
+      const leftDenominator = pick(range.denominator, random);
+      const rightDenominator = pick(range.denominator, random, [leftDenominator]);
+      const leftNumerator = pick([1, leftDenominator * range.multiplier], random);
+      const rightNumerator = pick([1, rightDenominator * range.multiplier], random);
+      const params = {
+        leftNumerator,
+        leftDenominator,
+        rightNumerator,
+        rightDenominator,
+      };
+      const correct = leftNumerator / leftDenominator + rightNumerator / rightDenominator;
+      const inputs = [
+        leftNumerator,
+        leftDenominator,
+        rightNumerator,
+        rightDenominator,
+        leftNumerator / leftDenominator,
+        rightNumerator / rightDenominator,
+      ];
+
+      if (clearDiagnosis(correct, inputs, Object.values(fractionWrongAnswers(fraction(params))))) {
+        return params;
+      }
+    }
   }
+
+  throw new Error(`Unable to generate an unambiguous ${kind} problem`);
 };
 
 export const solve = (kind: ProblemKind, params: Params): string => {
-  if (kind !== "linear_equation") throw unsupported(kind);
+  if (kind === "linear_equation") {
+    const { a, b, c } = linear(params);
 
-  const { a, b, c } = linear(params);
+    return String((c - b) / a);
+  }
+  if (kind === "percent_of") {
+    const { percent: part, whole } = percent(params);
 
-  return String((c - b) / a);
+    return String((part * whole) / 100);
+  }
+
+  const {
+    leftNumerator: a,
+    leftDenominator: b,
+    rightNumerator: c,
+    rightDenominator: d,
+  } = fraction(params);
+
+  return fractionText(a * d + c * b, b * d);
 };
-
-const toNumber = (answer: string) => {
-  const normalized = answer
-    .trim()
-    .replace(/^x\s*=\s*/i, "")
-    .replace(/[−–]/g, "-")
-    .replace(",", ".")
-    .replace(/\s+/g, "");
-
-  if (!/^-?\d+(\.\d+)?$/.test(normalized)) return null;
-
-  return Number(normalized);
-};
-
-const sameNumber = (left: number, right: number) => Math.abs(left - right) < 1e-9;
 
 export const isCorrect = (kind: ProblemKind, params: Params, answer: string) => {
-  const value = toNumber(answer);
+  const submitted = parseNumber(answer);
+  const expected = parseNumber(solve(kind, params));
 
-  return value !== null && sameNumber(value, Number(solve(kind, params)));
+  return submitted !== null && expected !== null && sameNumber(submitted, expected);
 };
 
 export const diagnose = (
@@ -169,14 +360,12 @@ export const diagnose = (
   params: Params,
   answer: string,
 ): Misconception | null => {
-  if (kind !== "linear_equation") throw unsupported(kind);
+  const submitted = parseNumber(answer);
 
-  const value = toNumber(answer);
+  if (submitted === null || isCorrect(kind, params, answer)) return null;
 
-  if (value === null || isCorrect(kind, params, answer)) return null;
-
-  const id = Object.entries(misconceptionAnswers(linear(params))).find(([, candidate]) =>
-    sameNumber(candidate, value),
+  const id = Object.entries(wrongAnswers(kind, params)).find(([, candidate]) =>
+    sameNumber(candidate, submitted),
   )?.[0];
 
   return MISCONCEPTIONS.find((misconception) => misconception.id === id) ?? null;
@@ -187,63 +376,97 @@ export const generateTemplate = (
   _difficulty: Difficulty,
   params: Params,
 ): ProblemText => {
-  if (kind !== "linear_equation") throw unsupported(kind);
+  if (kind === "linear_equation") {
+    const { a, b, c } = linear(params);
+    const bTerm = `${b < 0 ? "-" : "+"}${Math.abs(b)}`;
 
-  const { a, b, c } = linear(params);
-  const bTerm = `${b < 0 ? "-" : "+"}${Math.abs(b)}`;
+    return {
+      statement: `Тэгшитгэлийг бод: ${equationText(params)}`,
+      hints: [
+        `Эхлээд x-гүй гишүүнийг (${bTerm}) тэнцүүгийн баруун тал руу шилжүүл, тэмдгийг нь эсрэгээр соль.`,
+        `Одоо ${a}x = ${c - b} боллоо. x-ийг ганцааранг нь үлдээхийн тулд юу хийх вэ?`,
+        `Хоёр талыг x-ийн коэффициентод хуваа: x = ${c - b} ÷ ${a}. Хуваалтаа өөрөө гүйцээ.`,
+      ],
+    };
+  }
+  if (kind === "percent_of") {
+    const { percent: part, whole } = percent(params);
+
+    return {
+      statement: `${whole} тооны ${part}%-ийг ол.`,
+      hints: [
+        "Хувь гэдэг нь 100 хэсгээс хэдэн хэсгийг авч байгааг санаарай.",
+        `${part}%-ийг 100-гийн бутархай болгоод өгөгдсөн тоогоор үржүүлнэ.`,
+        `(${part} × ${whole}) ÷ 100 гэж бичээд үйлдлийг өөрөө гүйцээ.`,
+      ],
+    };
+  }
+
+  const {
+    leftNumerator: a,
+    leftDenominator: b,
+    rightNumerator: c,
+    rightDenominator: d,
+  } = fraction(params);
 
   return {
-    statement: `Тэгшитгэлийг бод: ${equationText(params)}`,
+    statement: `Бутархайг нэм: ${fractionExpression(params)}`,
     hints: [
-      `Эхлээд x-гүй гишүүнийг (${bTerm}) тэнцүүгийн баруун тал руу шилжүүл, тэмдгийг нь эсрэгээр соль.`,
-      `Одоо ${a}x = ${c - b} боллоо. x-ийг ганцааранг нь үлдээхийн тулд юу хийх вэ?`,
-      `Хоёр талыг x-ийн коэффициентод хуваа: x = ${c - b} ÷ ${a}. Хуваалтаа өөрөө гүйцээ.`,
+      "Хоёр бутархайг ижил хуваарьтай болгосны дараа л хүртвэрүүдийг нэмнэ.",
+      `${b} ба ${d}-ийн ерөнхий хуваарь олоод бутархай бүрийг түүнд шилжүүл.`,
+      `${a}/${b}-ийн хүртвэрийг ${d}-оор, ${c}/${d}-ийн хүртвэрийг ${b}-ээр үржүүлээд нэм. Дараа нь хураа.`,
     ],
   };
 };
 
-const numbersIn = (text: string) =>
-  (text.replace(/[−–]/g, "-").match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+const compact = (text: string) =>
+  text
+    .replace(/[−–]/g, "-")
+    .replace(/\s+/g, "")
+    .toLowerCase();
 
-const compact = (text: string) => text.replace(/[−–]/g, "-").replace(/\s+/g, "").toLowerCase();
+const valuesIn = (text: string) =>
+  (text.replace(/[−–]/g, "-").match(/-?\d+(?:[.,]\d+)?(?:\s*\/\s*-?\d+(?:[.,]\d+)?)?/g) ?? [])
+    .map(parseNumber)
+    .filter((value): value is number => value !== null);
 
-const statesAnswer = (text: string, answer: string) =>
-  new RegExp(
-    `x\\s*=\\s*${answer.replace(".", "\\.").replace("-", "[-−–]\\s*")}(?![\\d.,])`,
-    "i",
-  ).test(text);
+const includesValue = (text: string, expected: number) =>
+  valuesIn(text).some((value) => sameNumber(value, expected));
 
-// Deterministic gate for any wording (template or AI): the answer must follow
-// from the params, the statement must carry the exact equation, and no text
-// may give the answer away. randomParams keeps the answer out of a, b and c,
-// so the answer's number appearing in a hint is always a leak.
+const hasProblemExpression = (kind: ProblemKind, params: Params, statement: string) => {
+  if (kind === "linear_equation") {
+    return compact(statement).includes(compact(equationText(params)));
+  }
+  if (kind === "percent_of") {
+    const { percent: part, whole } = percent(params);
+
+    return compact(statement).includes(`${part}%`) && includesValue(statement, whole);
+  }
+
+  return compact(statement).includes(compact(fractionExpression(params)));
+};
+
 export const check = ({ kind, params, statement, answer, hints }: CheckInput): CheckResult => {
-  if (kind !== "linear_equation") throw unsupported(kind);
+  const expected = parseNumber(solve(kind, params));
+  const supplied = parseNumber(answer);
 
-  if (answer !== solve(kind, params)) {
+  if (expected === null || supplied === null || !sameNumber(expected, supplied)) {
     return { ok: false, reason: "Хариу параметрээс гарах утгатай таарахгүй байна" };
   }
   if (statement.trim().length < 10 || statement.length > 600) {
     return { ok: false, reason: "Нөхцөлийн урт 10–600 тэмдэгт байх ёстой" };
   }
-  if (!compact(statement).includes(compact(equationText(params)))) {
-    return {
-      ok: false,
-      reason: `Нөхцөлд тэгшитгэл (${equationText(params)}) тоогоор, бүтнээрээ алга`,
-    };
+  if (!hasProblemExpression(kind, params, statement)) {
+    return { ok: false, reason: "Нөхцөлд бодлогын өгөгдөл, математик илэрхийлэл бүтнээрээ алга" };
   }
-  if (statesAnswer(statement, answer)) {
+  if (includesValue(statement, expected)) {
     return { ok: false, reason: "Нөхцөл хариуг агуулж байна" };
   }
   if (hints.length !== 3 || hints.some((hint) => !hint.trim() || hint.length > 300)) {
     return { ok: false, reason: "1–300 тэмдэгттэй 3 шатны сэжүүр шаардлагатай" };
   }
 
-  const value = Number(answer);
-  const leaking = hints.findIndex(
-    (hint) =>
-      statesAnswer(hint, answer) || numbersIn(hint).some((number) => sameNumber(number, value)),
-  );
+  const leaking = hints.findIndex((hint) => includesValue(hint, expected));
 
   if (leaking !== -1) {
     return { ok: false, reason: `${leaking + 1}-р сэжүүр хариуг задалж байна` };
