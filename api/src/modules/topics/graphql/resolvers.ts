@@ -1,17 +1,10 @@
-import { GraphQLError } from "graphql";
 import { z } from "zod";
 import type { Context } from "../../../connectionResolvers.ts";
+import { authorize, badInput, isoDate, pageSchema, parse } from "../../../graphql/guards.ts";
 import { TOPICS_MANAGE, TOPICS_SHOW } from "../../../permissions.ts";
+import { MISCONCEPTIONS } from "../../problems/engineAdapter.ts";
 import { TOPIC_KINDS } from "../constants.ts";
-import type { ITopic, ITopicDocument } from "../db/definitions/topic.ts";
-
-const badInput = (message: string) =>
-  new GraphQLError(message, { extensions: { code: "BAD_USER_INPUT" } });
-
-const pageSchema = z.object({
-  limit: z.number().int().min(1).max(100),
-  offset: z.number().int().min(0).max(10_000),
-});
+import type { ILesson, ITopic, ITopicDocument } from "../db/definitions/topic.ts";
 
 const topicInputSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -31,31 +24,41 @@ const topicInputSchema = z.object({
   kind: z.enum(TOPIC_KINDS),
 });
 
-const parse = <T>(schema: z.ZodType<T>, value: unknown): T => {
-  const result = schema.safeParse(value);
+const VIDEO_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "drive.google.com"];
 
-  if (!result.success) {
-    throw badInput(result.error.issues.map((issue) => issue.message).join("; "));
-  }
+const lessonInputSchema = z.object({
+  videoUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .nullish()
+    .transform((value) => value || undefined)
+    .refine((value) => {
+      if (!value) return true;
+      try {
+        const url = new URL(value);
 
-  return result.data;
-};
-
-// The gateway only asserts a logged-in user; every resolver checks its own
-// action and needs a tenant before touching tenant-bound models.
-const authorize = async ({ user, subdomain, checkPermission }: Context, action: string) => {
-  if (!user?._id) {
-    throw new GraphQLError("Login required", { extensions: { code: "UNAUTHENTICATED" } });
-  }
-  if (!subdomain) {
-    throw new GraphQLError("Tenant required", { extensions: { code: "FORBIDDEN" } });
-  }
-  await checkPermission(action);
-};
+        return url.protocol === "https:" && VIDEO_HOSTS.includes(url.hostname);
+      } catch {
+        return false;
+      }
+    }, "Видео нь YouTube эсвэл Google Drive-ийн https холбоос байх ёстой"),
+  chapters: z
+    .array(
+      z.object({
+        misconception: z.string().trim().min(1),
+        // Up to six hours into the video.
+        atSeconds: z.number().int().min(0).max(21_600),
+        title: z.string().trim().min(1, "Хэсгийн гарчиг заавал").max(120),
+      }),
+    )
+    .max(20),
+});
 
 const toGraphql = (topic: ITopicDocument) => ({
   ...topic,
-  createdAt: topic.createdAt?.toISOString?.() ?? null,
+  lesson: topic.lesson ? { videoUrl: null, ...topic.lesson } : null,
+  createdAt: isoDate(topic.createdAt),
 });
 
 export const topicResolvers = {
@@ -92,6 +95,31 @@ export const topicResolvers = {
       return toGraphql(
         await context.models.Topics.updateTopic(_id, parse(topicInputSchema, input)),
       );
+    },
+    edututorTopicLessonSave: async (
+      _parent: unknown,
+      { _id, lesson }: { _id: string; lesson: ILesson },
+      context: Context,
+    ) => {
+      await authorize(context, TOPICS_MANAGE);
+      const topic = await context.models.Topics.getTopic(_id);
+      const input = parse(lessonInputSchema, lesson);
+      const known = new Set(
+        MISCONCEPTIONS.filter((item) => item.kind === topic.kind).map((item) => item.id),
+      );
+      const seen = new Set<string>();
+
+      for (const { misconception } of input.chapters) {
+        if (!known.has(misconception)) {
+          throw badInput(`"${misconception}" алдаа энэ сэдвийн төрөлд байхгүй`);
+        }
+        if (seen.has(misconception)) {
+          throw badInput("Нэг алдаанд нэг л хэсэг холбоно");
+        }
+        seen.add(misconception);
+      }
+
+      return toGraphql(await context.models.Topics.saveLesson(_id, input));
     },
     edututorTopicRemove: async (_parent: unknown, { _id }: { _id: string }, context: Context) => {
       await authorize(context, TOPICS_MANAGE);

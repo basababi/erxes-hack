@@ -4,6 +4,8 @@ import { manifest } from "./config.ts";
 // Action names are global across the platform, not local to this plugin.
 export const TOPICS_SHOW = "showTopics";
 export const TOPICS_MANAGE = "topicsManage";
+export const PROBLEMS_GENERATE = "problemsGenerate";
+export const PROBLEMS_APPROVE = "problemsApprove";
 
 export const permissions: IPermissionConfig = {
   plugin: manifest.name,
@@ -27,6 +29,26 @@ export const permissions: IPermissionConfig = {
           name: TOPICS_MANAGE,
           title: "Manage topics",
           description: `Create, edit and remove ${manifest.title} topics`,
+        },
+      ],
+    },
+    {
+      name: "problem",
+      description: `${manifest.title} problems`,
+      scopeField: null,
+      ownerFields: [],
+      scopes: [{ name: "all", description: "All problems in this tenant" }],
+      // Reading problems uses showTopics; these gate generation and review.
+      actions: [
+        {
+          name: PROBLEMS_GENERATE,
+          title: "Generate problems",
+          description: `Generate ${manifest.title} problems, with or without AI wording`,
+        },
+        {
+          name: PROBLEMS_APPROVE,
+          title: "Approve problems",
+          description: `Approve or reject generated ${manifest.title} problems`,
         },
       ],
     },

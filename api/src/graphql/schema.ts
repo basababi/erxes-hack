@@ -1,6 +1,8 @@
 import { gql } from "graphql-tag";
 import { manifest } from "../config.ts";
 import type { Context } from "../connectionResolvers.ts";
+import { problemResolvers } from "../modules/problems/graphql/resolvers.ts";
+import { problemTypeDefs } from "../modules/problems/graphql/typeDefs.ts";
 import { topicResolvers } from "../modules/topics/graphql/resolvers.ts";
 import { topicTypeDefs } from "../modules/topics/graphql/typeDefs.ts";
 
@@ -26,6 +28,7 @@ const baseTypeDefs = gql`
 export const typeDefs = gql`
   ${baseTypeDefs}
   ${topicTypeDefs}
+  ${problemTypeDefs}
 `;
 
 export const resolvers = {
@@ -38,8 +41,10 @@ export const resolvers = {
       userEmail: user?.email ?? null,
     }),
     ...topicResolvers.Query,
+    ...problemResolvers.Query,
   },
   Mutation: {
     ...topicResolvers.Mutation,
+    ...problemResolvers.Mutation,
   },
 };

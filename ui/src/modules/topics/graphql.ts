@@ -22,7 +22,31 @@ export const TOPIC_DETAIL_QUERY = gql(`
       description
       gradeLevel
       kind
+      lesson {
+        videoUrl
+        chapters {
+          misconception
+          atSeconds
+          title
+        }
+      }
       createdAt
+    }
+  }
+`);
+
+export const TOPIC_LESSON_SAVE_MUTATION = gql(`
+  mutation edututorTopicLessonSave($_id: String!, $lesson: EdututorLessonInput!) {
+    edututorTopicLessonSave(_id: $_id, lesson: $lesson) {
+      _id
+      lesson {
+        videoUrl
+        chapters {
+          misconception
+          atSeconds
+          title
+        }
+      }
     }
   }
 `);
